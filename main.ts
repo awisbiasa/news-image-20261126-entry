@@ -31,16 +31,31 @@ const target = process.env.OUTPUT_DIR
 
 const png = readFileSync(source);
 
-// Refuse here, with the reason, rather than let the gate refuse the entry after
-// the fact: the asset must be a real PNG and must fit the gate's byte cap.
-if (png.length > MAX_BYTES) {
-  throw new Error(
-    `assets/day-2026-11-26.png: ${png.length} bytes, the gate takes at most ${MAX_BYTES}`,
-  );
+/**
+ * Check the entry image before it is written out.
+ *
+ * The gate rejects any entry whose image is a PNG larger than 1 MiB, and it
+ * reports that only after the whole bundle has been built and uploaded. Passing
+ * the raw bytes to writeFileSync unexamined would therefore turn a one-line
+ * asset problem into a failed submission with a message about the upload, not
+ * about the file. Checking here instead fails fast, on the machine that can fix
+ * it, with the offending size and the cap in the same sentence.
+ *
+ * @param png the bytes of assets/day-2026-11-26.png, read but not yet written
+ * @throws if the bytes exceed MAX_BYTES, or do not begin with the PNG signature
+ */
+function assertEntry(png: Buffer): void {
+  if (png.length > MAX_BYTES) {
+    throw new Error(
+      `assets/day-2026-11-26.png: ${png.length} bytes, the gate takes at most ${MAX_BYTES}`,
+    );
+  }
+  if (!png.subarray(0, PNG_SIGNATURE.length).equals(PNG_SIGNATURE)) {
+    throw new Error("assets/day-2026-11-26.png: not a PNG (its signature is wrong)");
+  }
 }
-if (!png.subarray(0, PNG_SIGNATURE.length).equals(PNG_SIGNATURE)) {
-  throw new Error("assets/day-2026-11-26.png: not a PNG (its signature is wrong)");
-}
+
+assertEntry(png);
 
 mkdirSync(dirname(target), { recursive: true });
 writeFileSync(target, png);
