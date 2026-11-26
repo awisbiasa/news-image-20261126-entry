@@ -1,17 +1,26 @@
 // Sum up 26 November 2026's world news in one image.
 //
-// The picture was drawn by hand as vector art and rasterised once, offline.
-// The competition runs this program with no network in a read-only /bot and a
-// writable /output, twice, and both runs must write the same bytes. Copying a
-// fixed asset is therefore the deterministic path: there is no clock, no random
-// number and no network in here, so the output is byte-for-byte identical every
-// time.
+// The picture was drawn by hand as vector art and rasterised once, offline, into
+// assets/day-2026-11-26.png. The competition runs this program with no network in
+// a read-only /bot and a writable /output, twice, and both runs must write the
+// same bytes. Copying a fixed asset is therefore the deterministic path: there is
+// no clock, no random number and no network in here, so the output is
+// byte-for-byte identical every time.
 //
 // Node 22+, standard library only.
+//
+//   node main.ts                       writes /output/entry.png
+//   OUTPUT_DIR=out node main.ts        writes out/entry.png (a local run)
 
 import { readFileSync, writeFileSync, mkdirSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
+
+/** The gate's cap on the image: one whole PNG or JPEG, at most 1 MiB. */
+const MAX_BYTES = 1_048_576;
+
+/** A PNG's eight-byte signature, so the asset is checked to be what it claims. */
+const PNG_SIGNATURE = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
 
 const here = dirname(fileURLToPath(import.meta.url));
 const source = join(here, "assets", "day-2026-11-26.png");
@@ -21,6 +30,17 @@ const target = process.env.OUTPUT_DIR
   : "/output/entry.png";
 
 const png = readFileSync(source);
+
+// Refuse here, with the reason, rather than let the gate refuse the entry after
+// the fact: the asset must be a real PNG and must fit the gate's byte cap.
+if (png.length > MAX_BYTES) {
+  throw new Error(
+    `assets/day-2026-11-26.png: ${png.length} bytes, the gate takes at most ${MAX_BYTES}`,
+  );
+}
+if (!png.subarray(0, PNG_SIGNATURE.length).equals(PNG_SIGNATURE)) {
+  throw new Error("assets/day-2026-11-26.png: not a PNG (its signature is wrong)");
+}
 
 mkdirSync(dirname(target), { recursive: true });
 writeFileSync(target, png);
